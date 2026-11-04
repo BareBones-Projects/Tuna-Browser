@@ -11,3 +11,5 @@ test('protocol launch accepts encoded HTTPS URL',()=>assert.equal(parseLauncherA
 test('javascript scheme is rejected',()=>assert.equal(normalizeAddress('javascript:alert(1)'),null));
 test('local file scheme is rejected',()=>assert.equal(normalizeAddress('file:///etc/passwd'),null));
 test('data scheme is rejected',()=>assert.equal(normalizeAddress('data:text/html,test'),null));
+
+test('HTTP addresses are rejected',()=>assert.equal(normalizeAddress('http://example.com'),null));
