@@ -2,15 +2,15 @@
 
 **Last updated: November 3, 2026 · Version 0.10.0**
 
-Tuna Browser is an experimental, local URL launcher provided for evaluation. By using it, you accept these terms. If you do not agree, do not use the software.
+Tuna Browser is an experimental desktop browser prototype provided for evaluation. By using it, you accept these terms. If you do not agree, do not use the software.
 
 ## What the software does
 
-The application validates an address and requests that your operating system's default browser open it. It is not a full web browser. Features shown as planned, including private browsing, Tor/onion access, downloads, workspaces, and a vault, are not available unless a future release explicitly implements them.
+The application validates HTTPS addresses and loads pages in embedded Electron tabs. Site cookies and web storage use a persistent local session and may remain on disk; this prototype has no data-clearing control. Protocol launches open the validated URL immediately. Features not implemented include downloads, extensions, private browsing, Tor/onion access, workspaces, and a vault.
 
 ## Your responsibilities
 
-You are responsible for the links you open, your use of destination websites, and compliance with applicable laws and those websites' terms. Do not use the prototype for sensitive information or rely on it for security-critical tasks. The operating system browser and destination websites have separate policies and practices.
+You are responsible for the links you open, your use of destination websites, and compliance with applicable laws and those websites' terms. Do not use the prototype for sensitive information or rely on it for security-critical tasks. Destination websites have separate policies and practices.
 
 ## Experimental software; no warranty
 
