@@ -27,13 +27,17 @@ function createTab(initialUrl=''){
  const tab={id,view,url:'',title:'New tab',loading:false};
  tabs.set(id,tab);
  const wc=view.webContents;
- wc.setWindowOpenHandler(()=>({action:'deny'}));
+ wc.setWindowOpenHandler(({url})=>{
+  const safe=normalizeAddress(url);
+  if(safe&&tabs.size<20)createTab(safe);
+  return {action:'deny'};
+ });
  wc.on('will-navigate',(event,url)=>{if(!normalizeAddress(url))event.preventDefault();});
  wc.on('will-redirect',(event,url)=>{if(!normalizeAddress(url))event.preventDefault();});
  wc.on('did-start-loading',()=>{tab.loading=true;sendState();});
- wc.on('did-stop-loading',()=>{tab.loading=false;tab.url=wc.getURL();tab.title=wc.getTitle()||tab.url;sendState();});
+ wc.on('did-stop-loading',()=>{tab.loading=false;tab.url=normalizeAddress(wc.getURL())||'';tab.title=wc.getTitle()||tab.url||'New tab';sendState();});
  wc.on('page-title-updated',(_event,title)=>{tab.title=title;sendState();});
- wc.on('did-navigate',(_event,url)=>{tab.url=url;sendState();});
+ wc.on('did-navigate',(_event,url)=>{tab.url=normalizeAddress(url)||'';sendState();});
  if(win)win.contentView.addChildView(view);
  activateTab(id);
  if(initialUrl)navigateTab(tab,initialUrl);

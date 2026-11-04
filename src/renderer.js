@@ -15,7 +15,7 @@ function render(){
  const tab=activeTab();if(tab&&tab.url&&document.activeElement!==address)address.value=tab.url;
 }
 function newTab(){window.tuna.newTab();}
-document.querySelector('[data-address-form]').addEventListener('submit',event=>{event.preventDefault();if(state.activeTabId)window.tuna.navigate(state.activeTabId,address.value);});
+document.querySelector('[data-address-form]').addEventListener('submit',event=>{event.preventDefault();if(state.activeTabId){status.textContent='';window.tuna.navigate(state.activeTabId,address.value);}});
 document.querySelector('[data-new-tab]').addEventListener('click',newTab);
 document.querySelector('[data-new-tab-secondary]').addEventListener('click',newTab);
 document.querySelector('[data-back]').addEventListener('click',()=>state.activeTabId&&window.tuna.action(state.activeTabId,'back'));
