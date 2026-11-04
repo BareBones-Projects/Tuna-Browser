@@ -1,6 +1,6 @@
 # // TUNA BROWSER · v0.10.0
 
-A local-first Electron **prototype** for Windows, Linux, macOS, and ChromeOS Linux (Crostini). The interface opens validated HTTP/HTTPS destinations in the system browser. It does **not** yet embed a working browser engine, encrypted vault UI, private mode, or Tor integration.
+A local-first Electron **prototype** for Windows, Linux, macOS, and ChromeOS Linux (Crostini). It embeds HTTPS pages in isolated Electron web contents and provides basic tabs, address entry, back, forward, and reload controls. The browser remains an early prototype; downloads, vault UI, private mode, and Tor integration are not implemented.
 
 ## Development
 
@@ -15,7 +15,7 @@ Electron and electron-builder must be installed via npm; CI builds require netwo
 
 ## Remedy Launcher bridge
 
-`--launcher-open https://example.com` and `tunabrowser://open?url=https%3A%2F%2Fexample.com` accept HTTP/HTTPS only. No vault, cookies, or credentials are exposed to Remedy Launcher. Protocol registration depends on OS installation and user approval.
+`--launcher-open https://example.com` and `tunabrowser://open?url=https%3A%2F%2Fexample.com` accept HTTPS only and open in an embedded tab. Browser tab data uses a persistent local Electron session; it is not private or anonymous. No vault, cookies, or credentials are exposed to Remedy Launcher. Protocol launches open the validated address immediately without a confirmation prompt; protocol registration depends on OS installation and user approval.
 
 ## Component references
 
@@ -23,7 +23,7 @@ Existing `BB-*` component IDs remain stable to avoid breaking downstream referen
 
 ## Security caveat
 
-External links open in the OS default browser. This is not a privacy guarantee, VPN, Tor, anti-tracking, or zero-trace solution. All permission requests in the Electron shell are denied by default.
+Embedded pages run in isolated Electron web contents with a persistent local session. This is not a privacy guarantee, VPN, Tor, anti-tracking, or zero-trace solution. All permission requests in the Electron shell are denied by default. Downloads, extensions, private mode, vault, and tab persistence are not implemented.
 
 ## v0.10 security update
 See `docs/SECURITY_HARDENING.md`.

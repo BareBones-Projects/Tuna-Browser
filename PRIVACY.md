@@ -2,13 +2,13 @@
 
 **Last updated: November 3, 2026 · Version 0.10.0**
 
-Tuna Browser is a local desktop prototype that validates an address and asks your operating system's default browser to open it. It does not provide embedded web browsing.
+Tuna Browser is a local desktop prototype that validates HTTPS addresses and loads pages in embedded Electron tabs.
 
 ## Data and network behavior
 
-The launcher does not intentionally collect or transmit personal information, telemetry, browsing history, or account data. A URL you choose to open is handed to your system browser, which may communicate with that website under its own privacy terms. Search text without a URL is sent as a query to DuckDuckGo through the system browser. The app's protocol handler may receive a URL from the operating system when invoked.
+The app does not intentionally transmit telemetry to Tuna project servers. When you open a page or search, the destination website receives network requests from the embedded browser and may collect data under its own terms. The app uses a persistent local Electron session, so site cookies and other web storage may remain on disk. Protocol launches may pass a URL to the app and open it immediately.
 
-This notice describes the checked-in prototype and is not a guarantee that the operating system, dependencies, build environment, or destination websites transmit no data. Do not enter credentials or sensitive information into this prototype.
+This notice describes the checked-in prototype and is not a guarantee that the operating system, dependencies, build environment, or destination websites transmit no data. The app does not include a control to clear site data. Treat local session data as persistent and do not use it for sensitive information.
 
 ## Security and privacy limits
 
