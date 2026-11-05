@@ -2,6 +2,9 @@
 const tabsElement=document.querySelector('[data-tabs]');
 const address=document.querySelector('[data-address]');
 const status=document.querySelector('[data-status]');
+const backButton=document.querySelector('[data-back]');
+const forwardButton=document.querySelector('[data-forward]');
+const reloadButton=document.querySelector('[data-reload]');
 let state={tabs:[],activeTabId:null};
 function activeTab(){return state.tabs.find(tab=>tab.id===state.activeTabId);}
 function render(){
@@ -12,15 +15,31 @@ function render(){
   const close=document.createElement('button');close.className='tab-close';close.setAttribute('aria-label','Close tab');close.textContent='×';close.addEventListener('click',event=>{event.stopPropagation();window.tuna.closeTab(tab.id);});
   item.append(select,close);tabsElement.append(item);
  }
- const tab=activeTab();if(tab&&tab.url&&document.activeElement!==address)address.value=tab.url;
+ const tab=activeTab();
+ if(tab&&document.activeElement!==address)address.value=tab.url||'';
+ if(tab){
+  backButton.disabled=!tab.canGoBack;
+  forwardButton.disabled=!tab.canGoForward;
+  reloadButton.textContent=tab.loading?'×':'⟳';
+  reloadButton.setAttribute('aria-label',tab.loading?'Stop loading':'Reload');
+  reloadButton.title=tab.loading?'Stop loading':'Reload';
+  status.textContent=tab.error|| (tab.loading?'Loading…':'HTTPS pages only');
+ }
 }
 function newTab(){window.tuna.newTab();}
 document.querySelector('[data-address-form]').addEventListener('submit',event=>{event.preventDefault();if(state.activeTabId){status.textContent='';window.tuna.navigate(state.activeTabId,address.value);}});
 document.querySelector('[data-new-tab]').addEventListener('click',newTab);
 document.querySelector('[data-new-tab-secondary]').addEventListener('click',newTab);
-document.querySelector('[data-back]').addEventListener('click',()=>state.activeTabId&&window.tuna.action(state.activeTabId,'back'));
-document.querySelector('[data-forward]').addEventListener('click',()=>state.activeTabId&&window.tuna.action(state.activeTabId,'forward'));
-document.querySelector('[data-reload]').addEventListener('click',()=>state.activeTabId&&window.tuna.action(state.activeTabId,'reload'));
+backButton.addEventListener('click',()=>state.activeTabId&&window.tuna.action(state.activeTabId,'back'));
+forwardButton.addEventListener('click',()=>state.activeTabId&&window.tuna.action(state.activeTabId,'forward'));
+reloadButton.addEventListener('click',()=>state.activeTabId&&window.tuna.action(state.activeTabId,activeTab()?.loading?'stop':'reload'));
 window.tuna.onState(next=>{state=next;render();});
 window.tuna.onError(message=>{status.textContent=message;});
-document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='l'){event.preventDefault();address.focus();address.select();}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='t'){event.preventDefault();newTab();}});
+document.addEventListener('keydown',event=>{
+ const modifier=event.ctrlKey||event.metaKey;
+ if(modifier&&event.key.toLowerCase()==='l'){event.preventDefault();address.focus();address.select();}
+ if(modifier&&event.key.toLowerCase()==='t'){event.preventDefault();newTab();}
+ if(modifier&&event.key.toLowerCase()==='r'){event.preventDefault();window.tuna.action(state.activeTabId,activeTab()?.loading?'stop':'reload');}
+ if(event.altKey&&event.key==='ArrowLeft'){event.preventDefault();window.tuna.action(state.activeTabId,'back');}
+ if(event.altKey&&event.key==='ArrowRight'){event.preventDefault();window.tuna.action(state.activeTabId,'forward');}
+});

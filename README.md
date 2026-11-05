@@ -1,6 +1,6 @@
 # // TUNA BROWSER · v0.10.0
 
-A local-first Electron **prototype** for Windows, Linux, macOS, and ChromeOS Linux (Crostini). It embeds HTTPS pages in isolated Electron web contents and provides basic tabs, address entry, back, forward, and reload controls. The browser remains an early prototype; downloads, vault UI, private mode, and Tor integration are not implemented.
+A local-first Electron **prototype** for Windows, Linux, macOS, and ChromeOS Linux (Crostini). It embeds HTTPS pages in isolated Electron web contents and provides tabs, address entry, back, forward, reload/stop controls, and a visible load-error message. HTTPS links that request a new window open in a tab. The browser remains an early prototype; downloads, vault UI, private mode, and Tor integration are not implemented.
 
 ## Development
 

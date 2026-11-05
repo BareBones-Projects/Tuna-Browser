@@ -21,7 +21,9 @@ test('every visible browser toolbar button has a click handler',()=>{
  const buttons=[...html.matchAll(/<button\b[^>]*\bdata-([a-z-]+)/g)].map(match=>match[1]);
  assert.ok(buttons.length>0);
  for(const name of buttons){
-  assert.match(renderer,new RegExp(`querySelector\\(['"]\\[data-${name}\\]['"]\\)\\.addEventListener\\(['"]click['"]`),`data-${name} must be wired to a click handler`);
+  const binding={back:'backButton',forward:'forwardButton',reload:'reloadButton'}[name];
+  const listener=binding?new RegExp(`${binding}\\.addEventListener\\(['"]click['"]`):new RegExp(`querySelector\\(['"]\\[data-${name}\\]['"]\\)\\.addEventListener\\(['"]click['"]`);
+  assert.match(renderer,listener,`data-${name} must be wired to a click handler`);
  }
 });
 
@@ -36,4 +38,15 @@ test('safe HTTPS popups are routed into tabs and capped',()=>{
  assert.match(main,/setWindowOpenHandler\(\(\{url\}\)=>/);
  assert.match(main,/const safe=normalizeAddress\(url\)/);
  assert.match(main,/if\(safe&&tabs\.size<20\)createTab\(safe\)/);
+});
+
+test('navigation controls expose history, load failures, and stop behavior',()=>{
+ const main=fs.readFileSync(path.join(__dirname,'../src/main.js'),'utf8');
+ const renderer=fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8');
+ assert.match(main,/canGoBack:wc\.navigationHistory\.canGoBack\(\),canGoForward:wc\.navigationHistory\.canGoForward\(\)/);
+ assert.match(main,/did-fail-load/);
+ assert.match(main,/action==='stop'\)wc\.stop\(\)/);
+ assert.match(renderer,/backButton\.disabled=!tab\.canGoBack/);
+ assert.match(renderer,/forwardButton\.disabled=!tab\.canGoForward/);
+ assert.match(renderer,/activeTab\(\)\?\.loading\?'stop':'reload'/);
 });
