@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('tuna',{
  closeTab:id=>ipcRenderer.invoke('browser:close-tab',id),
  getPreferences:()=>ipcRenderer.invoke('browser:preferences:get'),
  savePreferences:prefs=>ipcRenderer.invoke('browser:preferences:save',prefs),
+ panel:open=>ipcRenderer.invoke('browser:panel',open),
  devtools:id=>ipcRenderer.invoke('browser:devtools',id),
  extensions:()=>ipcRenderer.invoke('browser:extensions'),
  onState:callback=>{const listener=(_event,state)=>callback(state);ipcRenderer.on('browser:state',listener);return ()=>ipcRenderer.removeListener('browser:state',listener);},
