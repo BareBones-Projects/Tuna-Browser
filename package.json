@@ -7,7 +7,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/vault.js && node --check launcher/bridge.js && node --check src/url-policy.js",
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/vault.js && node --check launcher/bridge.js && node --check src/url-policy.js && node --check src/browser-preferences.js && node --check src/new-tab.js",
     "test": "node --test tests/*.test.js",
     "pack:dir": "electron-builder --dir",
     "pack:win": "electron-builder --win nsis portable",
