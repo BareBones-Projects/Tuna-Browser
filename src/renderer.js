@@ -69,6 +69,7 @@ function renderBookmarks(){
 }
 function showSettings(mode){
  panel.hidden=false;
+ window.tuna.panel(true);
  document.querySelector('[data-settings-title]').textContent=mode==='extensions'?'Extensions':'System preferences';
  document.querySelector('[data-preferences-view]').hidden=mode==='extensions';
  document.querySelector('[data-extensions-view]').hidden=mode!=='extensions';
@@ -106,7 +107,7 @@ menuButtons.forEach(button=>button.addEventListener('click',()=>{
 }));
 document.querySelectorAll('[data-command]').forEach(button=>button.addEventListener('click',()=>Promise.resolve(command(button.dataset.command)).catch(error=>{status.textContent=error.message;})));
 document.querySelector('[data-bookmark-current]').addEventListener('click',()=>bookmarkCurrent().catch(error=>{status.textContent=error.message;}));
-document.querySelector('[data-settings-close]').addEventListener('click',()=>{panel.hidden=true;});
+document.querySelector('[data-settings-close]').addEventListener('click',()=>{panel.hidden=true;window.tuna.panel(false);});
 document.querySelector('[data-save-settings]').addEventListener('click',async()=>{
  try{
   preferences=await window.tuna.savePreferences({
@@ -116,9 +117,9 @@ document.querySelector('[data-save-settings]').addEventListener('click',async()=
    linkUrl:document.querySelector('[data-link-url]').value.trim(),
    showBookmarks:document.querySelector('[data-show-bookmarks]').checked
   });
-  renderBookmarks();panel.hidden=true;status.textContent='Preferences saved. Open a new tab to see wallpaper changes.';
+  renderBookmarks();panel.hidden=true;window.tuna.panel(false);status.textContent='Preferences saved. Open a new tab to see wallpaper changes.';
  }catch(error){status.textContent='Could not save preferences.';}
 });
 document.addEventListener('click',event=>{if(!event.target.closest('.menu-anchor'))closeMenus();});
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeMenus();panel.hidden=true;}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeMenus();panel.hidden=true;window.tuna.panel(false);}});
 window.tuna.getPreferences().then(prefs=>{if(prefs){preferences=prefs;renderBookmarks();}}).catch(()=>{status.textContent='Could not load preferences.';});
