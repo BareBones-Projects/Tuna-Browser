@@ -12,6 +12,7 @@ let activeTabId=null;
 let nextTabId=1;
 const chromeHeight=154;
 let store;
+let panelOpen=false;
 function isChromeSender(event){return Boolean(win&&event.sender===win.webContents);}
 function sendState(){
  if(!win||win.isDestroyed())return;
@@ -22,7 +23,7 @@ function setViewBounds(){
  if(!win||!activeTabId)return;
  const {width,height}=win.getContentBounds();
  const view=tabs.get(activeTabId)?.view;
- if(view)view.setBounds({x:0,y:chromeHeight,width,height:Math.max(0,height-chromeHeight)});
+ if(view)view.setBounds({x:0,y:chromeHeight,width:Math.max(0,width-(panelOpen?360:0)),height:Math.max(0,height-chromeHeight)});
 }
 function createTab(initialUrl=''){
  if(!mayOpenTab(tabs.size))return null;
@@ -95,6 +96,7 @@ app.whenReady().then(()=>{
   win.webContents.send('browser:preferences',prefs);
   return prefs;
  });
+ ipcMain.handle('browser:panel',(event,open)=>{if(!isChromeSender(event))return false;panelOpen=open===true;setViewBounds();return true;});
  ipcMain.handle('browser:devtools',(event,id)=>{
   if(!isChromeSender(event))return false;
   const tab=tabs.get(String(id));
