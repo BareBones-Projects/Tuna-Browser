@@ -2,6 +2,7 @@
 const {app,BrowserWindow,WebContentsView,ipcMain,session}=require('electron');
 const path=require('path');
 const {normalizeAddress}=require('./url-policy');
+const {isPublicHttpsUrl,mayOpenTab}=require('./navigation-guard');
 const bridge=require('../launcher/bridge');
 
 let win;
@@ -22,6 +23,7 @@ function setViewBounds(){
  if(view)view.setBounds({x:0,y:chromeHeight,width,height:Math.max(0,height-chromeHeight)});
 }
 function createTab(initialUrl=''){
+ if(!mayOpenTab(tabs.size))return null;
  const id=String(nextTabId++);
  const view=new WebContentsView({webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true,webviewTag:false,partition:'persist:tuna-browser'}});
  const tab={id,view,url:'',title:'New tab',loading:false,error:''};
@@ -29,10 +31,10 @@ function createTab(initialUrl=''){
  const wc=view.webContents;
  wc.setWindowOpenHandler(({url})=>{
   const safe=normalizeAddress(url);
-  if(safe&&tabs.size<20)createTab(safe);
+  if(safe&&isPublicHttpsUrl(safe)&&mayOpenTab(tabs.size))createTab(safe);
   return {action:'deny'};
  });
- wc.on('will-navigate',(event,url)=>{if(!normalizeAddress(url))event.preventDefault();});
+ wc.on('will-navigate',(event,url)=>{if(!isPublicHttpsUrl(url))event.preventDefault();});
  wc.on('will-redirect',(event,url)=>{if(!normalizeAddress(url))event.preventDefault();});
  wc.on('did-start-loading',()=>{tab.loading=true;tab.error='';sendState();});
  wc.on('did-stop-loading',()=>{tab.loading=false;tab.url=normalizeAddress(wc.getURL())||'';tab.title=wc.getTitle()||tab.url||'New tab';sendState();});
@@ -56,7 +58,7 @@ function activateTab(id){
 }
 function navigateTab(tab,input){
  const url=normalizeAddress(input);
- if(!url){win.webContents.send('browser:error','Enter a valid HTTPS address or search query.');return false;}
+ if(!url||!isPublicHttpsUrl(url)){win.webContents.send('browser:error','Only public HTTPS destinations are allowed.');return false;}
  tab.error='';tab.loading=true;tab.url=url;tab.title=url;tab.view.webContents.loadURL(url).catch(()=>{});sendState();return true;
 }
 function createWindow(){
@@ -79,8 +81,8 @@ app.whenReady().then(()=>{
  ipcMain.handle('browser:close-tab',(event,id)=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));if(!tab)return false;const wasActive=activeTabId===tab.id;tabs.delete(tab.id);win.contentView.removeChildView(tab.view);tab.view.webContents.close();if(!tabs.size)createTab();else if(wasActive)activateTab([...tabs.keys()][Math.max(0,tabs.size-1)]);sendState();return true;});
  ipcMain.handle('tuna:version',()=>app.getVersion());
  createWindow();
- const launch=bridge.parseLauncherArgs(process.argv);if(launch.open)createTab(launch.open);
+ const launch=bridge.parseLauncherArgs(process.argv);if(launch.open&&isPublicHttpsUrl(launch.open))createTab(launch.open);
 });
-app.on('second-instance',(_event,argv)=>{const request=bridge.parseLauncherArgs(argv);if(request.open)createTab(request.open);if(win){if(win.isMinimized())win.restore();win.focus();}});
+app.on('second-instance',(_event,argv)=>{const request=bridge.parseLauncherArgs(argv);if(request.open&&isPublicHttpsUrl(request.open))createTab(request.open);if(win){if(win.isMinimized())win.restore();win.focus();}});
 app.on('open-url',(event,url)=>{event.preventDefault();const request=bridge.parseLauncherArgs([url]);if(request.open)createTab(request.open);});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit();});
