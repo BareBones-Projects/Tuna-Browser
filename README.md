@@ -4,21 +4,8 @@
 
 A local-first Electron **prototype** for Windows, Linux, macOS, and ChromeOS Linux (Crostini). It embeds HTTPS pages in isolated Electron web contents and provides tabs, address entry, back, forward, reload/stop controls, and a visible load-error message. HTTPS links that request a new window open in a tab. The browser remains an early prototype; downloads, vault UI, private mode, and Tor integration are not implemented.
 
-## Development
-
-```sh
-npm install
-npm run check
-npm test
-npm start
-```
-
-Electron and electron-builder must be installed via npm; CI builds require network access and OS-specific runners. Platform packaging commands are defined in `package.json`. No native installers have been built or verified here.
-
-## Remedy Launcher bridge
-
-`--launcher-open https://example.com` and `tunabrowser://open?url=https%3A%2F%2Fexample.com` accept HTTPS only and open in an embedded tab. Browser tab data uses a persistent local Electron session; it is not private or anonymous. No vault, cookies, or credentials are exposed to Remedy Launcher. Protocol launches open the validated address immediately without a confirmation prompt; protocol registration depends on OS installation and user approval.
-
+- **CHECK @INSTALATION.md FOR INSTRUCTIONS**
+- 
 ## Component references
 
 Existing `BB-*` component IDs remain stable to avoid breaking downstream references. Historical v0.6 screenshots are archived, not presented as v0.9 UI renders.
