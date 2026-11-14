@@ -1,6 +1,6 @@
 # Tuna Browser v0.10.0 alpha testing
-Official source: https://github.com/Bare-Bones-Projects/Tuna-Browser
-Companion: https://github.com/Bare-Bones-Projects/Remedy-Launcher
+Official source: https://github.com/BareBones-Projects/Tuna-Browser
+Companion: https://github.com/BareBones-Projects/Remedy-Launcher
 
 ## Run the builds
 Actions > Tuna Browser alpha builds > Run workflow.
@@ -17,7 +17,7 @@ Arch/Omarchy: AppImage smoke test. These builds are not proof of compatibility.
 1. Verify downloaded archive integrity and provenance.
 2. Install or extract on a disposable test profile.
 3. Launch application and check UI rendering.
-4. Enter a safe HTTPS URL and confirm it opens in the OS default browser.
+4. Enter a safe HTTPS URL and confirm it loads in an embedded tab. Verify an HTTP URL is rejected and redirects to non-HTTPS destinations are blocked.
 5. Verify javascript:, file:, and credential-bearing URLs are blocked.
 6. Test restart, close, and uninstall.
 7. Record OS version, architecture, result, and logs.

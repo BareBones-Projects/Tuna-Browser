@@ -1,3 +1,5 @@
-# // SECURITY
+# Security Policy
 
-Tuna Browser does not claim anonymity, IP masking, or Tor equivalence. Onion destinations use a Tor Browser handoff. Theme files never contain vault, permission, or download security decisions.
+Tuna Browser 0.10.0 is a prototype URL launcher. It validates web addresses and opens HTTP(S) links in the system browser; it does not provide embedded browsing, Tor or onion-service connectivity, a VPN, anti-tracking, anonymity, encryption, or a password vault. No privacy or security guarantees are made. Features shown in the interface that are not implemented are not available.
+
+Theme files are presentation-only and must not implement security-sensitive behavior, permissions, credential storage, or download enforcement. Report suspected vulnerabilities privately to the repository maintainers before public disclosure. Do not include secrets or personal data in reports. This policy describes the prototype and is not a substitute for an independent security audit.
