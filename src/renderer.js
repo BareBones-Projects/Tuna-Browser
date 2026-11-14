@@ -43,3 +43,83 @@ document.addEventListener('keydown',event=>{
  if(event.altKey&&event.key==='ArrowLeft'){event.preventDefault();window.tuna.action(state.activeTabId,'back');}
  if(event.altKey&&event.key==='ArrowRight'){event.preventDefault();window.tuna.action(state.activeTabId,'forward');}
 });
+
+let preferences={wallpaper:'',linkText:'',linkUrl:'',showBookmarks:true,bookmarks:[]};
+const panel=document.querySelector('[data-settings]');
+const bookmarksBar=document.querySelector('[data-bookmarks-bar]');
+const bookmarkItems=document.querySelector('[data-bookmarks]');
+const menuButtons=[...document.querySelectorAll('[data-menu-toggle]')];
+function closeMenus(){
+ document.querySelectorAll('[data-menu]').forEach(menu=>menu.hidden=true);
+ menuButtons.forEach(button=>button.setAttribute('aria-expanded','false'));
+}
+function renderBookmarks(){
+ bookmarksBar.hidden=!preferences.showBookmarks;
+ bookmarkItems.replaceChildren();
+ for(const bookmark of preferences.bookmarks){
+  const button=document.createElement('button');
+  button.textContent=bookmark.title;button.title=bookmark.url;
+  button.addEventListener('click',()=>state.activeTabId&&window.tuna.navigate(state.activeTabId,bookmark.url));
+  const remove=document.createElement('button');
+  remove.textContent='×';remove.title='Remove '+bookmark.title;
+  remove.setAttribute('aria-label','Remove '+bookmark.title);
+  remove.addEventListener('click',async()=>{preferences=await window.tuna.savePreferences({...preferences,bookmarks:preferences.bookmarks.filter(b=>b.url!==bookmark.url)});renderBookmarks();});
+  const item=document.createElement('span');item.append(button,remove);bookmarkItems.append(item);
+ }
+}
+function showSettings(mode){
+ panel.hidden=false;
+ window.tuna.panel(true);
+ document.querySelector('[data-settings-title]').textContent=mode==='extensions'?'Extensions':'System preferences';
+ document.querySelector('[data-preferences-view]').hidden=mode==='extensions';
+ document.querySelector('[data-extensions-view]').hidden=mode!=='extensions';
+ if(mode==='extensions'){
+  window.tuna.extensions().then(list=>{
+   document.querySelector('[data-extensions-list]').textContent=list.length?list.map(e=>e.name).join(', '):'No extensions installed.';
+  }).catch(()=>{document.querySelector('[data-extensions-list]').textContent='Extensions unavailable.';});
+ }else{
+  document.querySelector('[data-wallpaper]').value=preferences.wallpaper;
+  document.querySelector('[data-link-text]').value=preferences.linkText;
+  document.querySelector('[data-link-url]').value=preferences.linkUrl;
+  document.querySelector('[data-show-bookmarks]').checked=preferences.showBookmarks;
+ }
+}
+async function bookmarkCurrent(){
+ const tab=activeTab();
+ if(!tab?.url||!tab.url.startsWith('https://'))return;
+ if(preferences.bookmarks.some(b=>b.url===tab.url))return;
+ preferences=await window.tuna.savePreferences({...preferences,bookmarks:[...preferences.bookmarks,{title:tab.title||new URL(tab.url).hostname,url:tab.url}]});
+ renderBookmarks();
+}
+async function command(name){
+ closeMenus();
+ if(name==='new-tab')return newTab();
+ if(name==='bookmark')return bookmarkCurrent();
+ if(name==='focus-address'){address.focus();address.select();return;}
+ if(name==='copy-url'){const url=activeTab()?.url;if(url)await navigator.clipboard.writeText(url);return;}
+ if(name==='preferences'||name==='extensions')return showSettings(name);
+ if(name==='devtools'&&state.activeTabId)return window.tuna.devtools(state.activeTabId);
+ if(name==='reload'&&state.activeTabId)return window.tuna.action(state.activeTabId,'reload');
+}
+menuButtons.forEach(button=>button.addEventListener('click',()=>{
+ const menu=document.querySelector('[data-menu="'+button.dataset.menuToggle+'"]');
+ const wasHidden=menu.hidden;closeMenus();menu.hidden=!wasHidden;button.setAttribute('aria-expanded',String(wasHidden));
+}));
+document.querySelectorAll('[data-command]').forEach(button=>button.addEventListener('click',()=>Promise.resolve(command(button.dataset.command)).catch(error=>{status.textContent=error.message;})));
+document.querySelector('[data-bookmark-current]').addEventListener('click',()=>bookmarkCurrent().catch(error=>{status.textContent=error.message;}));
+document.querySelector('[data-settings-close]').addEventListener('click',()=>{panel.hidden=true;window.tuna.panel(false);});
+document.querySelector('[data-save-settings]').addEventListener('click',async()=>{
+ try{
+  preferences=await window.tuna.savePreferences({
+   ...preferences,
+   wallpaper:document.querySelector('[data-wallpaper]').value.trim(),
+   linkText:document.querySelector('[data-link-text]').value,
+   linkUrl:document.querySelector('[data-link-url]').value.trim(),
+   showBookmarks:document.querySelector('[data-show-bookmarks]').checked
+  });
+  renderBookmarks();panel.hidden=true;window.tuna.panel(false);status.textContent='Preferences saved. Open a new tab to see wallpaper changes.';
+ }catch(error){status.textContent='Could not save preferences.';}
+});
+document.addEventListener('click',event=>{if(!event.target.closest('.menu-anchor'))closeMenus();});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeMenus();panel.hidden=true;window.tuna.panel(false);}});
+window.tuna.getPreferences().then(prefs=>{if(prefs){preferences=prefs;renderBookmarks();}}).catch(()=>{status.textContent='Could not load preferences.';});
