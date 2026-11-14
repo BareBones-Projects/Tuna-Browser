@@ -1,5 +1,6 @@
 
 const test=require('node:test');const assert=require('node:assert/strict');
+const fs=require('node:fs');const path=require('node:path');
 const {normalizeAddress}=require('../src/url-policy');const {parseLauncherArgs}=require('../launcher/bridge');
 test('HTTPS normalization',()=>assert.equal(normalizeAddress('example.com'),'https://example.com/'));
 test('search query',()=>assert.match(normalizeAddress('cats and dogs'),/^https:\/\/duckduckgo.com\/\?q=/));
@@ -11,3 +12,43 @@ test('protocol launch accepts encoded HTTPS URL',()=>assert.equal(parseLauncherA
 test('javascript scheme is rejected',()=>assert.equal(normalizeAddress('javascript:alert(1)'),null));
 test('local file scheme is rejected',()=>assert.equal(normalizeAddress('file:///etc/passwd'),null));
 test('data scheme is rejected',()=>assert.equal(normalizeAddress('data:text/html,test'),null));
+
+test('HTTP addresses are rejected',()=>assert.equal(normalizeAddress('http://example.com'),null));
+
+test('every visible browser toolbar button has a click handler',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8');
+ const renderer=fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8');
+ const buttons=[...html.matchAll(/<button\b[^>]*\bdata-([a-z-]+)/g)].map(match=>match[1]);
+ assert.ok(buttons.length>0);
+ for(const name of buttons){
+  if(name==='menu-toggle'){assert.match(renderer,/menuButtons\.forEach\(button=>button\.addEventListener\('click'/);continue;}
+  if(name==='command'){assert.match(renderer,/querySelectorAll\('\[data-command\]'\)\.forEach\(button=>button\.addEventListener\('click'/);continue;}
+  const binding={back:'backButton',forward:'forwardButton',reload:'reloadButton'}[name];
+  const listener=binding?new RegExp(`${binding}\\.addEventListener\\(['"]click['"]`):new RegExp(`querySelector\\(['"]\\[data-${name}\\]['"]\\)\\.addEventListener\\(['"]click['"]`);
+  assert.match(renderer,listener,`data-${name} must be wired to a click handler`);
+ }
+});
+
+test('browser address form submits to the active tab',()=>{
+ const renderer=fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8');
+ assert.match(renderer,/querySelector\('\[data-address-form\]'\)\.addEventListener\('submit'/);
+ assert.match(renderer,/window\.tuna\.navigate\(state\.activeTabId,address\.value\)/);
+});
+
+test('safe HTTPS popups are routed into tabs and capped',()=>{
+ const main=fs.readFileSync(path.join(__dirname,'../src/main.js'),'utf8');
+ assert.match(main,/setWindowOpenHandler\(\(\{url\}\)=>/);
+ assert.match(main,/const safe=normalizeAddress\(url\)/);
+ assert.match(main,/if\(safe&&isPublicHttpsUrl\(safe\)&&mayOpenTab\(tabs\.size\)\)createTab\(safe\)/);
+});
+
+test('navigation controls expose history, load failures, and stop behavior',()=>{
+ const main=fs.readFileSync(path.join(__dirname,'../src/main.js'),'utf8');
+ const renderer=fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8');
+ assert.match(main,/canGoBack:wc\.navigationHistory\.canGoBack\(\),canGoForward:wc\.navigationHistory\.canGoForward\(\)/);
+ assert.match(main,/did-fail-load/);
+ assert.match(main,/action==='stop'\)wc\.stop\(\)/);
+ assert.match(renderer,/backButton\.disabled=!tab\.canGoBack/);
+ assert.match(renderer,/forwardButton\.disabled=!tab\.canGoForward/);
+ assert.match(renderer,/activeTab\(\)\?\.loading\?'stop':'reload'/);
+});
