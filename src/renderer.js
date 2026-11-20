@@ -35,16 +35,9 @@ forwardButton.addEventListener('click',()=>state.activeTabId&&window.tuna.action
 reloadButton.addEventListener('click',()=>state.activeTabId&&window.tuna.action(state.activeTabId,activeTab()?.loading?'stop':'reload'));
 window.tuna.onState(next=>{state=next;render();});
 window.tuna.onError(message=>{status.textContent=message;});
-document.addEventListener('keydown',event=>{
- const modifier=event.ctrlKey||event.metaKey;
- if(modifier&&event.key.toLowerCase()==='l'){event.preventDefault();address.focus();address.select();}
- if(modifier&&event.key.toLowerCase()==='t'){event.preventDefault();newTab();}
- if(modifier&&event.key.toLowerCase()==='r'){event.preventDefault();window.tuna.action(state.activeTabId,activeTab()?.loading?'stop':'reload');}
- if(event.altKey&&event.key==='ArrowLeft'){event.preventDefault();window.tuna.action(state.activeTabId,'back');}
- if(event.altKey&&event.key==='ArrowRight'){event.preventDefault();window.tuna.action(state.activeTabId,'forward');}
-});
 
-let preferences={wallpaper:'',linkText:'',linkUrl:'',showBookmarks:true,bookmarks:[]};
+
+let preferences={wallpaper:'',linkText:'',linkUrl:'',showBookmarks:true,bookmarks:[],hotkeys:{}};
 const panel=document.querySelector('[data-settings]');
 const bookmarksBar=document.querySelector('[data-bookmarks-bar]');
 const bookmarkItems=document.querySelector('[data-bookmarks]');
@@ -70,8 +63,10 @@ function renderBookmarks(){
 function showSettings(mode){
  panel.hidden=false;
  window.tuna.panel(true);
- document.querySelector('[data-settings-title]').textContent=mode==='extensions'?'Extensions':'System preferences';
- document.querySelector('[data-preferences-view]').hidden=mode==='extensions';
+ document.querySelector('[data-settings-title]').textContent=mode==='extensions'?'Extensions':mode==='hotkeys'?'Keyboard shortcuts':'System preferences';
+ document.querySelector('[data-hotkeys-view]').hidden=mode!=='hotkeys';
+ if(mode==='hotkeys')renderHotkeyRows();
+ document.querySelector('[data-preferences-view]').hidden=mode==='extensions'||mode==='hotkeys';
  document.querySelector('[data-extensions-view]').hidden=mode!=='extensions';
  if(mode==='extensions'){
   window.tuna.extensions().then(list=>{
@@ -97,7 +92,7 @@ async function command(name){
  if(name==='bookmark')return bookmarkCurrent();
  if(name==='focus-address'){address.focus();address.select();return;}
  if(name==='copy-url'){const url=activeTab()?.url;if(url)await navigator.clipboard.writeText(url);return;}
- if(name==='preferences'||name==='extensions')return showSettings(name);
+ if(name==='preferences'||name==='extensions'||name==='hotkeys')return showSettings(name);
  if(name==='devtools'&&state.activeTabId)return window.tuna.devtools(state.activeTabId);
  if(name==='reload'&&state.activeTabId)return window.tuna.action(state.activeTabId,'reload');
 }
@@ -123,3 +118,109 @@ document.querySelector('[data-save-settings]').addEventListener('click',async()=
 document.addEventListener('click',event=>{if(!event.target.closest('.menu-anchor'))closeMenus();});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeMenus();panel.hidden=true;window.tuna.panel(false);}});
 window.tuna.getPreferences().then(prefs=>{if(prefs){preferences=prefs;renderBookmarks();}}).catch(()=>{status.textContent='Could not load preferences.';});
+
+let hotkeyCatalog=[];
+let recordingHotkey=null;
+const hotkeyRows=document.querySelector('[data-hotkey-rows]');
+const hotkeyStatus=document.querySelector('[data-hotkeys-status]');
+function displayShortcut(shortcut){
+ return (shortcut||'').replace(/Mod/g,navigator.platform.includes('Mac')?'⌘':'Ctrl').replace(/\+/g,' + ');
+}
+function keyFromEvent(event){
+ const mods=[];
+ if(navigator.platform.includes('Mac')?event.metaKey:event.ctrlKey)mods.push('Mod');
+ if(event.altKey)mods.push('Alt');
+ if(event.shiftKey)mods.push('Shift');
+ let key=event.key;
+ if(['Control','Meta','Alt','Shift'].includes(key))return null;
+ if(key===',')key='Comma';
+ if(key==='=')key='Equal';
+ if(key==='-')key='Minus';
+ if(key===' ')key='Space';
+ if(key.length===1)key=key.toUpperCase();
+ if(!mods.length&&key!=='Escape')return null;
+ return [...mods,key].join('+');
+}
+function renderHotkeyRows(){
+ hotkeyRows.replaceChildren();
+ for(const item of hotkeyCatalog){
+  const row=document.createElement('div');row.className='hotkey-row';
+  const info=document.createElement('div');
+  const name=document.createElement('strong');name.textContent=item.label;
+  const desc=document.createElement('small');desc.textContent=item.description;
+  info.append(name,desc);
+  const editor=document.createElement('div');editor.className='hotkey-editor';
+  const shortcut=document.createElement('span');shortcut.textContent=displayShortcut(preferences.hotkeys[item.id]||item.shortcut);
+  const button=document.createElement('button');button.textContent=recordingHotkey===item.id?'Press keys…':'Edit';
+  button.setAttribute('aria-label','Edit shortcut for '+item.label);
+  button.addEventListener('click',()=>{recordingHotkey=item.id;hotkeyStatus.textContent='Press the new shortcut for '+item.label+' or Escape to cancel.';renderHotkeyRows();});
+  const reset=document.createElement('button');reset.textContent='↺';reset.title='Reset '+item.label;
+  reset.addEventListener('click',()=>updateHotkey(item.id,item.shortcut));
+  editor.append(shortcut,button,reset);row.append(info,editor);hotkeyRows.append(row);
+ }
+}
+async function updateHotkey(id,combo){
+ if(Object.entries(preferences.hotkeys).some(([key,value])=>key!==id&&value===combo)){
+  hotkeyStatus.textContent='Shortcut already assigned. Choose a different combination.';return;
+ }
+ const proposed={...preferences,hotkeys:{...preferences.hotkeys,[id]:combo}};
+ try{
+  const saved=await window.tuna.savePreferences(proposed);
+  if(saved.hotkeys[id]!==combo){hotkeyStatus.textContent='This shortcut is reserved or invalid.';return;}
+  preferences=saved;recordingHotkey=null;renderHotkeyRows();
+  hotkeyStatus.textContent='Shortcut saved.';
+ }catch{hotkeyStatus.textContent='Could not save shortcut.';}
+}
+async function executeHotkey(command){
+ const id=state.activeTabId;
+ switch(command){
+ case 'newTab':return newTab();
+ case 'closeTab':return id&&window.tuna.closeTab(id);
+ case 'reopenTab':return window.tuna.reopenTab();
+ case 'nextTab':case 'previousTab':{
+  const index=state.tabs.findIndex(t=>t.id===id);
+  if(index<0||!state.tabs.length)return;
+  const delta=command==='nextTab'?1:-1;
+  return window.tuna.activateTab(state.tabs[(index+delta+state.tabs.length)%state.tabs.length].id);
+ }
+ case 'focusAddress':address.focus();address.select();return;
+ case 'reload':case 'hardReload':case 'stop':case 'back':case 'forward':return id&&window.tuna.action(id,command);
+ case 'bookmark':return bookmarkCurrent();
+ case 'toggleBookmarks':preferences=await window.tuna.savePreferences({...preferences,showBookmarks:!preferences.showBookmarks});renderBookmarks();return;
+ case 'preferences':case 'hotkeys':case 'extensions':return showSettings(command);
+ case 'devtools':return id&&window.tuna.devtools(id);
+ case 'copyUrl':return commandActionCopyUrl();
+ case 'find':{
+  const text=prompt('Find on page:');
+  if(text!==null&&id)return window.tuna.find(id,text);
+  return;
+ }
+ case 'zoomIn':case 'zoomOut':case 'zoomReset':return id&&window.tuna.zoom(id,command==='zoomIn'?'in':command==='zoomOut'?'out':'reset');
+ }
+}
+async function commandActionCopyUrl(){
+ const url=activeTab()?.url;
+ if(url)await navigator.clipboard.writeText(url);
+}
+document.addEventListener('keydown',event=>{
+ if(recordingHotkey){
+  event.preventDefault();event.stopImmediatePropagation();
+  if(event.key==='Escape'){recordingHotkey=null;hotkeyStatus.textContent='Recording cancelled.';renderHotkeyRows();return;}
+  const combo=keyFromEvent(event);
+  if(combo)void updateHotkey(recordingHotkey,combo);
+  return;
+ }
+ const combo=keyFromEvent(event);
+ if(!combo)return;
+ const command=Object.keys(preferences.hotkeys).find(id=>preferences.hotkeys[id]===combo);
+ if(!command)return;
+ if(event.target.closest('input,textarea,[contenteditable=true]')&&!event.ctrlKey&&!event.metaKey&&!event.altKey)return;
+ event.preventDefault();void Promise.resolve(executeHotkey(command)).catch(error=>{status.textContent=error.message;});
+},true);
+window.tuna.onShortcut(command=>{if(!recordingHotkey)void Promise.resolve(executeHotkey(command)).catch(()=>{});});
+document.querySelector('[data-hotkeys-reset]').addEventListener('click',async()=>{
+ const defaults=Object.fromEntries(hotkeyCatalog.map(x=>[x.id,x.shortcut]));
+ preferences=await window.tuna.savePreferences({...preferences,hotkeys:defaults});
+ recordingHotkey=null;renderHotkeyRows();hotkeyStatus.textContent='Default shortcuts restored.';
+});
+window.tuna.hotkeyCatalog().then(items=>{hotkeyCatalog=items;}).catch(()=>{hotkeyStatus.textContent='Shortcut catalog unavailable.';});
