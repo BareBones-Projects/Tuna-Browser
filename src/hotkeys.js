@@ -58,9 +58,9 @@ function validateBindings(input){
 }
 function eventShortcut(event,platform=process.platform){
  const mods=[];
- if(platform==='darwin'?event.metaKey:event.ctrlKey)mods.push('Mod');
- if(event.altKey)mods.push('Alt');
- if(event.shiftKey)mods.push('Shift');
+ if(platform==='darwin'?(event.metaKey||event.meta):(event.ctrlKey||event.control))mods.push('Mod');
+ if(event.altKey||event.alt)mods.push('Alt');
+ if(event.shiftKey||event.shift)mods.push('Shift');
  let key=event.key;
  if(key===' ')key='Space';
  if(key===',')key='Comma';
