@@ -1,6 +1,7 @@
 'use strict';
 const {app,BrowserWindow,WebContentsView,ipcMain,session,Menu}=require('electron');
 const {createStore}=require('./browser-preferences');
+const {ACTIONS,matchShortcut}=require('./hotkeys');
 const path=require('path');
 const {normalizeAddress}=require('./url-policy');
 const {isPublicHttpsUrl,mayOpenTab}=require('./navigation-guard');
@@ -13,6 +14,7 @@ let nextTabId=1;
 const chromeHeight=154;
 let store;
 let panelOpen=false;
+const recentlyClosed=[];
 function isChromeSender(event){return Boolean(win&&event.sender===win.webContents);}
 function sendState(){
  if(!win||win.isDestroyed())return;
@@ -32,6 +34,13 @@ function createTab(initialUrl=''){
  const tab={id,view,url:'',title:'New tab',loading:false,error:''};
  tabs.set(id,tab);
  const wc=view.webContents;
+ wc.on('before-input-event',(event,input)=>{
+  const command=matchShortcut(input,store.read().hotkeys);
+  if(!command)return;
+  if(input.type==='keyUp')return;
+  event.preventDefault();
+  win?.webContents.send('browser:shortcut',command);
+ });
  wc.setWindowOpenHandler(({url})=>{
   const safe=normalizeAddress(url);
   if(safe&&isPublicHttpsUrl(safe)&&mayOpenTab(tabs.size))createTab(safe);
@@ -87,8 +96,25 @@ app.whenReady().then(()=>{
  ipcMain.handle('browser:new-tab',(event,input)=>{if(!isChromeSender(event))return null;return createTab(typeof input==='string'?input:'');});
  ipcMain.handle('browser:activate',(event,id)=>{if(!isChromeSender(event))return false;activateTab(String(id));return true;});
  ipcMain.handle('browser:navigate',(event,{id,input})=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));return tab?navigateTab(tab,input):false;});
- ipcMain.handle('browser:action',(event,{id,action})=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));if(!tab)return false;const wc=tab.view.webContents;if(action==='back'&&wc.navigationHistory.canGoBack())wc.navigationHistory.goBack();else if(action==='forward'&&wc.navigationHistory.canGoForward())wc.navigationHistory.goForward();else if(action==='reload')wc.reload();else if(action==='stop')wc.stop();return true;});
- ipcMain.handle('browser:close-tab',(event,id)=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));if(!tab)return false;const wasActive=activeTabId===tab.id;tabs.delete(tab.id);win.contentView.removeChildView(tab.view);tab.view.webContents.close();if(!tabs.size)createTab();else if(wasActive)activateTab([...tabs.keys()][Math.max(0,tabs.size-1)]);sendState();return true;});
+ ipcMain.handle('browser:action',(event,{id,action})=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));if(!tab)return false;const wc=tab.view.webContents;if(action==='hardReload')wc.reloadIgnoringCache();else if(action==='back'&&wc.navigationHistory.canGoBack())wc.navigationHistory.goBack();else if(action==='forward'&&wc.navigationHistory.canGoForward())wc.navigationHistory.goForward();else if(action==='reload')wc.reload();else if(action==='stop')wc.stop();return true;});
+ ipcMain.handle('browser:close-tab',(event,id)=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));if(!tab)return false;const wasActive=activeTabId===tab.id;if(tab.url&&isPublicHttpsUrl(tab.url)){recentlyClosed.unshift(tab.url);recentlyClosed.length=Math.min(recentlyClosed.length,20);}tabs.delete(tab.id);win.contentView.removeChildView(tab.view);tab.view.webContents.close();if(!tabs.size)createTab();else if(wasActive)activateTab([...tabs.keys()][Math.max(0,tabs.size-1)]);sendState();return true;});
+ ipcMain.handle('browser:hotkeys:catalog',event=>isChromeSender(event)?ACTIONS:[]);
+ ipcMain.handle('browser:reopen-tab',event=>isChromeSender(event)&&recentlyClosed.length?createTab(recentlyClosed.shift()):null);
+ ipcMain.handle('browser:zoom',(event,{id,mode})=>{
+  if(!isChromeSender(event))return false;
+  const wc=tabs.get(String(id))?.view.webContents;
+  if(!wc)return false;
+  const current=wc.getZoomFactor();
+  wc.setZoomFactor(mode==='reset'?1:Math.min(3,Math.max(.5,current+(mode==='in'?.1:-.1))));
+  return true;
+ });
+ ipcMain.handle('browser:find',(event,{id,text})=>{
+  if(!isChromeSender(event))return false;
+  const wc=tabs.get(String(id))?.view.webContents;
+  if(!wc||typeof text!=='string')return false;
+  if(text)wc.findInPage(text.slice(0,200));else wc.stopFindInPage('clearSelection');
+  return true;
+ });
  ipcMain.handle('browser:preferences:get',event=>isChromeSender(event)?store.read():null);
  ipcMain.handle('browser:preferences:save',(event,input)=>{
   if(!isChromeSender(event))return null;
