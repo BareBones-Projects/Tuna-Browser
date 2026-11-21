@@ -17,3 +17,16 @@
 .settings-panel label>input:not([type=checkbox]){display:block;width:100%;margin-top:6px;padding:10px;border:1px solid #354453;border-radius:6px;background:#0d141b;color:inherit}
 .settings-panel button{cursor:pointer;color:inherit;background:#263b42;border:1px solid #354453;border-radius:6px;padding:8px 12px}
 .settings-check input{min-width:auto}
+
+/* Compact toolbar placement only. Original Tuna palette and typography preserved. */
+.top{position:relative}
+.brand{flex-shrink:0}
+.top-tools{display:flex;align-items:center;gap:6px}
+.top-tools>button{border:0;background:transparent;color:inherit;cursor:pointer;padding:6px 9px;white-space:nowrap}
+.top-tools>button:hover{background:#293745}
+.toolbar .menu-anchor{flex-shrink:0}
+.toolbar .menu-anchor>button{height:32px;min-width:32px;border:1px solid #354453;border-radius:7px}
+.toolbar form{min-width:80px}
+.toolbar>button{flex-shrink:0}
+.bookmarks-bar [data-command="toggle-bookmarks"]{flex-shrink:0;border-right:1px solid #354453;padding-right:12px}
+@media(max-width:900px){.top-tools>button{font-size:11px;padding:6px 3px}.tab-strip{max-width:40vw}}
