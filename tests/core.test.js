@@ -21,6 +21,8 @@ test('every visible browser toolbar button has a click handler',()=>{
  const buttons=[...html.matchAll(/<button\b[^>]*\bdata-([a-z-]+)/g)].map(match=>match[1]);
  assert.ok(buttons.length>0);
  for(const name of buttons){
+  if(name==='menu-toggle'){assert.match(renderer,/menuButtons\.forEach\(button=>button\.addEventListener\('click'/);continue;}
+  if(name==='command'){assert.match(renderer,/querySelectorAll\('\[data-command\]'\)\.forEach\(button=>button\.addEventListener\('click'/);continue;}
   const binding={back:'backButton',forward:'forwardButton',reload:'reloadButton'}[name];
   const listener=binding?new RegExp(`${binding}\\.addEventListener\\(['"]click['"]`):new RegExp(`querySelector\\(['"]\\[data-${name}\\]['"]\\)\\.addEventListener\\(['"]click['"]`);
   assert.match(renderer,listener,`data-${name} must be wired to a click handler`);
@@ -37,7 +39,7 @@ test('safe HTTPS popups are routed into tabs and capped',()=>{
  const main=fs.readFileSync(path.join(__dirname,'../src/main.js'),'utf8');
  assert.match(main,/setWindowOpenHandler\(\(\{url\}\)=>/);
  assert.match(main,/const safe=normalizeAddress\(url\)/);
- assert.match(main,/if\(safe&&tabs\.size<20\)createTab\(safe\)/);
+ assert.match(main,/if\(safe&&isPublicHttpsUrl\(safe\)&&mayOpenTab\(tabs\.size\)\)createTab\(safe\)/);
 });
 
 test('navigation controls expose history, load failures, and stop behavior',()=>{

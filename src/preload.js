@@ -7,6 +7,16 @@ contextBridge.exposeInMainWorld('tuna',{
  navigate:(id,input)=>ipcRenderer.invoke('browser:navigate',{id,input}),
  action:(id,action)=>ipcRenderer.invoke('browser:action',{id,action}),
  closeTab:id=>ipcRenderer.invoke('browser:close-tab',id),
+ getPreferences:()=>ipcRenderer.invoke('browser:preferences:get'),
+ savePreferences:prefs=>ipcRenderer.invoke('browser:preferences:save',prefs),
+ panel:open=>ipcRenderer.invoke('browser:panel',open),
+ hotkeyCatalog:()=>ipcRenderer.invoke('browser:hotkeys:catalog'),
+ reopenTab:()=>ipcRenderer.invoke('browser:reopen-tab'),
+ zoom:(id,mode)=>ipcRenderer.invoke('browser:zoom',{id,mode}),
+ find:(id,text)=>ipcRenderer.invoke('browser:find',{id,text}),
+ onShortcut:callback=>{const listener=(_event,command)=>callback(command);ipcRenderer.on('browser:shortcut',listener);return ()=>ipcRenderer.removeListener('browser:shortcut',listener);},
+ devtools:id=>ipcRenderer.invoke('browser:devtools',id),
+ extensions:()=>ipcRenderer.invoke('browser:extensions'),
  onState:callback=>{const listener=(_event,state)=>callback(state);ipcRenderer.on('browser:state',listener);return ()=>ipcRenderer.removeListener('browser:state',listener);},
  onError:callback=>{const listener=(_event,message)=>callback(message);ipcRenderer.on('browser:error',listener);return ()=>ipcRenderer.removeListener('browser:error',listener);}
 });

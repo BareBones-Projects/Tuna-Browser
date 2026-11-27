@@ -1,14 +1,20 @@
 'use strict';
-const {app,BrowserWindow,WebContentsView,ipcMain,session}=require('electron');
+const {app,BrowserWindow,WebContentsView,ipcMain,session,Menu}=require('electron');
+const {createStore}=require('./browser-preferences');
+const {ACTIONS,matchShortcut}=require('./hotkeys');
 const path=require('path');
 const {normalizeAddress}=require('./url-policy');
+const {isPublicHttpsUrl,mayOpenTab}=require('./navigation-guard');
 const bridge=require('../launcher/bridge');
 
 let win;
 const tabs=new Map();
 let activeTabId=null;
 let nextTabId=1;
-const chromeHeight=122;
+const chromeHeight=154;
+let store;
+let panelOpen=false;
+const recentlyClosed=[];
 function isChromeSender(event){return Boolean(win&&event.sender===win.webContents);}
 function sendState(){
  if(!win||win.isDestroyed())return;
@@ -19,20 +25,28 @@ function setViewBounds(){
  if(!win||!activeTabId)return;
  const {width,height}=win.getContentBounds();
  const view=tabs.get(activeTabId)?.view;
- if(view)view.setBounds({x:0,y:chromeHeight,width,height:Math.max(0,height-chromeHeight)});
+ if(view)view.setBounds({x:0,y:chromeHeight,width:Math.max(0,width-(panelOpen?360:0)),height:Math.max(0,height-chromeHeight)});
 }
 function createTab(initialUrl=''){
+ if(!mayOpenTab(tabs.size))return null;
  const id=String(nextTabId++);
  const view=new WebContentsView({webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true,webviewTag:false,partition:'persist:tuna-browser'}});
  const tab={id,view,url:'',title:'New tab',loading:false,error:''};
  tabs.set(id,tab);
  const wc=view.webContents;
+ wc.on('before-input-event',(event,input)=>{
+  const command=matchShortcut(input,store.read().hotkeys);
+  if(!command)return;
+  if(input.type==='keyUp')return;
+  event.preventDefault();
+  win?.webContents.send('browser:shortcut',command);
+ });
  wc.setWindowOpenHandler(({url})=>{
   const safe=normalizeAddress(url);
-  if(safe&&tabs.size<20)createTab(safe);
+  if(safe&&isPublicHttpsUrl(safe)&&mayOpenTab(tabs.size))createTab(safe);
   return {action:'deny'};
  });
- wc.on('will-navigate',(event,url)=>{if(!normalizeAddress(url))event.preventDefault();});
+ wc.on('will-navigate',(event,url)=>{if(!isPublicHttpsUrl(url))event.preventDefault();});
  wc.on('will-redirect',(event,url)=>{if(!normalizeAddress(url))event.preventDefault();});
  wc.on('did-start-loading',()=>{tab.loading=true;tab.error='';sendState();});
  wc.on('did-stop-loading',()=>{tab.loading=false;tab.url=normalizeAddress(wc.getURL())||'';tab.title=wc.getTitle()||tab.url||'New tab';sendState();});
@@ -43,8 +57,12 @@ function createTab(initialUrl=''){
  if(win)win.contentView.addChildView(view);
  activateTab(id);
  if(initialUrl)navigateTab(tab,initialUrl);
- else wc.loadFile(path.join(__dirname,'new-tab.html'));
+ else openNewTabPage(wc);
  return id;
+}
+function openNewTabPage(wc){
+ const prefs=store.read();
+ wc.loadFile(path.join(__dirname,'new-tab.html'),{query:{wallpaper:prefs.wallpaper,linkText:prefs.linkText,linkUrl:prefs.linkUrl}}).catch(()=>{});
 }
 function activateTab(id){
  if(!tabs.has(id))return;
@@ -56,17 +74,20 @@ function activateTab(id){
 }
 function navigateTab(tab,input){
  const url=normalizeAddress(input);
- if(!url){win.webContents.send('browser:error','Enter a valid HTTPS address or search query.');return false;}
+ if(!url||!isPublicHttpsUrl(url)){win.webContents.send('browser:error','Only public HTTPS destinations are allowed.');return false;}
  tab.error='';tab.loading=true;tab.url=url;tab.title=url;tab.view.webContents.loadURL(url).catch(()=>{});sendState();return true;
 }
 function createWindow(){
  win=new BrowserWindow({width:1440,height:900,minWidth:800,minHeight:560,backgroundColor:'#0b1017',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,webviewTag:false}});
  win.loadFile(path.join(__dirname,'index.html'));
+ win.setMenuBarVisibility(false);
  win.webContents.on('did-finish-load',()=>{if(!tabs.size)createTab();else{activateTab(activeTabId);sendState();}});
  win.on('resize',setViewBounds);
  win.on('closed',()=>{tabs.clear();activeTabId=null;win=null;});
 }
 app.whenReady().then(()=>{
+ Menu.setApplicationMenu(null);
+ store=createStore(app.getPath('userData'));
  bridge.registerProtocol(app);
  session.defaultSession.setPermissionCheckHandler(()=>false);
  session.defaultSession.setPermissionRequestHandler((_wc,_permission,callback)=>callback(false));
@@ -75,12 +96,51 @@ app.whenReady().then(()=>{
  ipcMain.handle('browser:new-tab',(event,input)=>{if(!isChromeSender(event))return null;return createTab(typeof input==='string'?input:'');});
  ipcMain.handle('browser:activate',(event,id)=>{if(!isChromeSender(event))return false;activateTab(String(id));return true;});
  ipcMain.handle('browser:navigate',(event,{id,input})=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));return tab?navigateTab(tab,input):false;});
- ipcMain.handle('browser:action',(event,{id,action})=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));if(!tab)return false;const wc=tab.view.webContents;if(action==='back'&&wc.navigationHistory.canGoBack())wc.navigationHistory.goBack();else if(action==='forward'&&wc.navigationHistory.canGoForward())wc.navigationHistory.goForward();else if(action==='reload')wc.reload();else if(action==='stop')wc.stop();return true;});
- ipcMain.handle('browser:close-tab',(event,id)=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));if(!tab)return false;const wasActive=activeTabId===tab.id;tabs.delete(tab.id);win.contentView.removeChildView(tab.view);tab.view.webContents.close();if(!tabs.size)createTab();else if(wasActive)activateTab([...tabs.keys()][Math.max(0,tabs.size-1)]);sendState();return true;});
+ ipcMain.handle('browser:action',(event,{id,action})=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));if(!tab)return false;const wc=tab.view.webContents;if(action==='hardReload')wc.reloadIgnoringCache();else if(action==='back'&&wc.navigationHistory.canGoBack())wc.navigationHistory.goBack();else if(action==='forward'&&wc.navigationHistory.canGoForward())wc.navigationHistory.goForward();else if(action==='reload')wc.reload();else if(action==='stop')wc.stop();return true;});
+ ipcMain.handle('browser:close-tab',(event,id)=>{if(!isChromeSender(event))return false;const tab=tabs.get(String(id));if(!tab)return false;const wasActive=activeTabId===tab.id;if(tab.url&&isPublicHttpsUrl(tab.url)){recentlyClosed.unshift(tab.url);recentlyClosed.length=Math.min(recentlyClosed.length,20);}tabs.delete(tab.id);win.contentView.removeChildView(tab.view);tab.view.webContents.close();if(!tabs.size)createTab();else if(wasActive)activateTab([...tabs.keys()][Math.max(0,tabs.size-1)]);sendState();return true;});
+ ipcMain.handle('browser:hotkeys:catalog',event=>isChromeSender(event)?ACTIONS:[]);
+ ipcMain.handle('browser:reopen-tab',event=>isChromeSender(event)&&recentlyClosed.length?createTab(recentlyClosed.shift()):null);
+ ipcMain.handle('browser:zoom',(event,{id,mode})=>{
+  if(!isChromeSender(event))return false;
+  const wc=tabs.get(String(id))?.view.webContents;
+  if(!wc)return false;
+  const current=wc.getZoomFactor();
+  wc.setZoomFactor(mode==='reset'?1:Math.min(3,Math.max(.5,current+(mode==='in'?.1:-.1))));
+  return true;
+ });
+ ipcMain.handle('browser:find',(event,{id,text})=>{
+  if(!isChromeSender(event))return false;
+  const wc=tabs.get(String(id))?.view.webContents;
+  if(!wc||typeof text!=='string')return false;
+  if(text)wc.findInPage(text.slice(0,200));else wc.stopFindInPage('clearSelection');
+  return true;
+ });
+ ipcMain.handle('browser:preferences:get',event=>isChromeSender(event)?store.read():null);
+ ipcMain.handle('browser:preferences:save',(event,input)=>{
+  if(!isChromeSender(event))return null;
+  const prefs=store.save(input);
+  win.webContents.send('browser:preferences',prefs);
+  return prefs;
+ });
+ ipcMain.handle('browser:panel',(event,open)=>{if(!isChromeSender(event))return false;panelOpen=open===true;setViewBounds();return true;});
+ ipcMain.handle('browser:devtools',(event,id)=>{
+  if(!isChromeSender(event))return false;
+  const tab=tabs.get(String(id));
+  if(!tab)return false;
+  tab.view.webContents.toggleDevTools();
+  return true;
+ });
+ ipcMain.handle('browser:extensions',event=>{
+  if(!isChromeSender(event))return [];
+  const partition=session.fromPartition('persist:tuna-browser');
+  return typeof partition.getAllExtensions==='function'
+   ?Object.values(partition.getAllExtensions()).map(x=>({name:x.name||'Extension',id:x.id||''}))
+   :[];
+ });
  ipcMain.handle('tuna:version',()=>app.getVersion());
  createWindow();
- const launch=bridge.parseLauncherArgs(process.argv);if(launch.open)createTab(launch.open);
+ const launch=bridge.parseLauncherArgs(process.argv);if(launch.open&&isPublicHttpsUrl(launch.open))createTab(launch.open);
 });
-app.on('second-instance',(_event,argv)=>{const request=bridge.parseLauncherArgs(argv);if(request.open)createTab(request.open);if(win){if(win.isMinimized())win.restore();win.focus();}});
-app.on('open-url',(event,url)=>{event.preventDefault();const request=bridge.parseLauncherArgs([url]);if(request.open)createTab(request.open);});
+app.on('second-instance',(_event,argv)=>{const request=bridge.parseLauncherArgs(argv);if(request.open&&isPublicHttpsUrl(request.open))createTab(request.open);if(win){if(win.isMinimized())win.restore();win.focus();}});
+app.on('open-url',(event,url)=>{event.preventDefault();const request=bridge.parseLauncherArgs([url]);if(request.open&&isPublicHttpsUrl(request.open))createTab(request.open);});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit();});
