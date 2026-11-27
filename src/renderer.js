@@ -89,6 +89,8 @@ async function bookmarkCurrent(){
 async function command(name){
  closeMenus();
  if(name==='new-tab')return newTab();
+ if(name==='toggle-bookmarks'){preferences=await window.tuna.savePreferences({...preferences,showBookmarks:!preferences.showBookmarks});renderBookmarks();return;}
+ if(name==='wallpaper-settings')return showSettings('preferences');
  if(name==='bookmark')return bookmarkCurrent();
  if(name==='focus-address'){address.focus();address.select();return;}
  if(name==='copy-url'){const url=activeTab()?.url;if(url)await navigator.clipboard.writeText(url);return;}

@@ -1,0 +1,14 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const html=fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8');
+const css=fs.readFileSync(path.join(__dirname,'../src/ui.css'),'utf8');
+const js=fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8');
+test('Tuna logo is fixed in tab row, no top native menu bar',()=>{assert.match(html,/<header class="top">[\s\S]*?<div class="brand">/);assert.doesNotMatch(html,/data-menu-toggle="edit"/);});
+test('toolbar has system menu, left bookmark/image controls, and right navigation',()=>{const bar=html.match(/<nav class="toolbar"[\s\S]*?<\/nav>/)?.[0]||'';assert.ok(bar.indexOf('data-menu-toggle="app"')<bar.indexOf('data-address-form'));assert.ok(bar.indexOf('data-bookmark-current')<bar.indexOf('data-address-form'));assert.ok(bar.indexOf('data-back')>bar.indexOf('data-address-form'));assert.ok(bar.indexOf('data-reload')>bar.indexOf('data-address-form'));});
+test('bookmarks menu and edit tools are available in dropdowns',()=>{assert.match(html,/data-command="toggle-bookmarks"/);assert.match(html,/data-menu-toggle="tools"/);assert.match(html,/data-command="copy-url"/);});
+test('extensions and preferences appear in the requested left-to-right order',()=>{assert.ok(html.indexOf('data-command="extensions"')<html.indexOf('data-command="preferences"'));});
+test('existing theme variables are preserved',()=>{assert.match(css,/#78d4b9/);assert.match(css,/#0b1017/);});
+test('menu handlers and bookmark toggling are implemented',()=>{assert.match(js,/toggle-bookmarks/);assert.match(js,/data-menu-toggle/);});
